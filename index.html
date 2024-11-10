@@ -110,6 +110,45 @@
                 transform: translate(-50%, -50%) scale(1);
             }
         }
+        /* Overlay untuk menampilkan teks di tengah layar */
+.tetris-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5); /* Transparansi latar belakang */
+    z-index: 1000;
+    animation: fadeInOut 2s ease-in-out;
+}
+
+/* Gaya untuk teks TETRIS */
+.tetris-text {
+    font-size: 5rem;
+    font-weight: bold;
+    color: #FF4500;
+    text-shadow: 2px 2px 10px rgba(255, 255, 255, 0.8);
+    animation: scaleUp 1s ease-in-out;
+}
+
+/* Animasi fade-in dan fade-out untuk overlay */
+@keyframes fadeInOut {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Animasi scale-up untuk teks */
+@keyframes scaleUp {
+    0% { transform: scale(0.8); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
     </style>
 </head>
 <body>
@@ -133,10 +172,14 @@
             ↓ : Move down faster<br>
             CTRL : Rotate
         </div>
+        <audio id="bgMusic" loop>
+            <source src="Tetris.mp3" type="audio/mpeg">
+        </audio>
     </div>
 
     <script>
-const canvas = document.getElementById('board');
+        
+        const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const previewCanvas = document.getElementById('preview');
 const previewCtx = previewCanvas.getContext('2d');
@@ -146,6 +189,40 @@ const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
 const scoreElement = document.getElementById('score-value');
 const levelElement = document.getElementById('level-value');
+
+// Tambahkan audio element secara programmatik
+const bgMusic = new Audio('tetris.mp3');
+bgMusic.loop = true;
+let isMusicPlaying = false;
+
+// Fungsi untuk mengontrol musik
+function toggleMusic() {
+    if (isMusicPlaying) {
+        bgMusic.pause();
+        isMusicPlaying = false;
+    } else {
+        bgMusic.volume = 0.5;
+        bgMusic.play()
+            .then(() => {
+                isMusicPlaying = true;
+            })
+            .catch(error => {
+                console.log("Autoplay prevented:", error);
+            });
+    }
+}
+
+// Fungsi untuk memulai musik saat game dimulai
+function startBackgroundMusic() {
+    bgMusic.volume = 0.5;
+    bgMusic.play()
+        .then(() => {
+            isMusicPlaying = true;
+        })
+        .catch(error => {
+            console.log("Autoplay prevented:", error);
+        });
+}
 
 // Touch control variables
 let touchStartX = 0;
@@ -211,7 +288,6 @@ class Piece {
             this.shape.map(row => row[i]).reverse()
         );
         
-        // Implementation of wall kicks
         const kicks = [
             [0, 0],  // Normal rotation
             [-1, 0], // Try left
@@ -374,6 +450,7 @@ function mergePiece() {
 
 function checkLines() {
     let linesCleared = 0;
+
     for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
         if (board[y].every(cell => cell !== 0)) {
             board.splice(y, 1);
@@ -382,6 +459,7 @@ function checkLines() {
             y++; // Check the same row again
         }
     }
+
     if (linesCleared > 0) {
         const basePoints = linesCleared * 100;
         const levelMultiplier = Math.ceil(level / 10);
@@ -398,11 +476,40 @@ function checkLines() {
             showLevelUpAnimation();
             createSparkles(canvas.offsetLeft + canvas.width / 2, canvas.offsetTop + canvas.height / 2);
         }
+
+        // Tampilkan tulisan "TETRIS" jika berhasil menghapus 4 baris
+        if (linesCleared === 1) {
+            showTetrisText();
+        }
     }
 }
 
+function showTetrisText() {
+    // Buat elemen overlay
+    const overlay = document.createElement('div');
+    overlay.classList.add('tetris-overlay');
+
+    // Tambahkan teks TETRIS ke dalam overlay
+    const tetrisText = document.createElement('div');
+    tetrisText.textContent = 'TETRIS!';
+    tetrisText.classList.add('tetris-text');
+    overlay.appendChild(tetrisText);
+
+    // Tambahkan overlay ke dalam body
+    document.body.appendChild(overlay);
+
+    // Hapus overlay setelah beberapa detik
+    setTimeout(() => {
+        overlay.remove();
+    }, 2000);
+}
+
+
+
 function gameOver() {
     clearInterval(gameInterval);
+    bgMusic.pause(); // Tambahkan ini untuk menghentikan musik saat game over
+    isMusicPlaying = false;
     alert(`Game Over!\nScore: ${score}\nLevel: ${level}`);
     board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
     score = 0;
@@ -442,9 +549,14 @@ function startGame() {
     nextPiece = new Piece();
     drawPreview();
     gameInterval = setInterval(update, getSpeedForLevel(level));
+    startBackgroundMusic(); // Memulai musik saat game dimulai
 }
 
 // Touch event handlers
+canvas.addEventListener('touchstart', handleTouchStart);
+canvas.addEventListener('touchmove', handleTouchMove);
+canvas.addEventListener('touchend', handleTouchEnd);
+
 function handleTouchStart(e) {
     e.preventDefault();
     const touch = e.touches[0];
@@ -465,15 +577,12 @@ function handleTouchMove(e) {
     const deltaX = touchEndX - touchStartX;
     const deltaY = touchEndY - touchStartY;
     
-    // If movement exceeds threshold, it's a swipe not a tap
     if (Math.abs(deltaX) > MOVE_THRESHOLD || Math.abs(deltaY) > MOVE_THRESHOLD) {
         isTap = false;
     }
     
-    // Only handle swipe if it's definitely not a tap
     if (!isTap) {
         if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal swipe
             if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
                 if (deltaX > 0) {
                     currentPiece.move(1, 0);
@@ -483,7 +592,6 @@ function handleTouchMove(e) {
                 touchStartX = touchEndX;
             }
         } else {
-            // Vertical swipe (down only)
             if (deltaY > SWIPE_THRESHOLD) {
                 currentPiece.move(0, 1);
                 touchStartY = touchEndY;
@@ -497,7 +605,6 @@ function handleTouchEnd(e) {
     const touchEndTime = new Date().getTime();
     const touchDuration = touchEndTime - touchStartTime;
     
-    // If this was a tap (not a swipe) and the tap duration was short enough
     if (isTap && touchDuration < 250) {
         if (currentPiece) {
             currentPiece.rotate();
@@ -505,16 +612,10 @@ function handleTouchEnd(e) {
         }
     }
     
-    // Reset variables
     touchStartX = 0;
     touchStartY = 0;
     isTap = false;
 }
-
-// Add touch event listeners
-canvas.addEventListener('touchstart', handleTouchStart);
-canvas.addEventListener('touchmove', handleTouchMove);
-canvas.addEventListener('touchend', handleTouchEnd);
 
 // Keyboard controls
 document.addEventListener('keydown', (e) => {
@@ -530,13 +631,23 @@ document.addEventListener('keydown', (e) => {
         case 40: // Down
             currentPiece.move(0, 1);
             break;
-        case 17: // Ctrl
-            e.preventDefault();
+        case 17: // Ctrl (menggantikan Space)
+            e.preventDefault(); // Mencegah browser scroll
             currentPiece.rotate();
+            break;
+        case 77: // M key untuk toggle musik
+            toggleMusic();
             break;
     }
     drawBoard();
 });
+
+// Tambahkan tombol untuk musik di UI
+const musicButton = document.createElement('button');
+musicButton.textContent = 'Toggle Music (M)';
+musicButton.style.margin = '10px';
+musicButton.addEventListener('click', toggleMusic);
+document.getElementById('controls').appendChild(musicButton);
 
 startGame();
     </script>
