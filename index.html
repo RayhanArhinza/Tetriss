@@ -111,7 +111,7 @@
             }
         }
         /* Overlay untuk menampilkan teks di tengah layar */
-.tetris-overlay {
+.-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -125,8 +125,8 @@
     animation: fadeInOut 2s ease-in-out;
 }
 
-/* Gaya untuk teks TETRIS */
-.tetris-text {
+/* Gaya untuk teks  */
+.-text {
     font-size: 5rem;
     font-weight: bold;
     color: #FF4500;
@@ -173,7 +173,7 @@
             CTRL : Rotate
         </div>
         <audio id="bgMusic" loop>
-            <source src="Tetris.mp3" type="audio/mpeg">
+            <source src=".mp3" type="audio/mpeg">
         </audio>
     </div>
 
@@ -191,7 +191,7 @@ const scoreElement = document.getElementById('score-value');
 const levelElement = document.getElementById('level-value');
 
 // Tambahkan audio element secara programmatik
-const bgMusic = new Audio('tetris.mp3');
+const bgMusic = new Audio('Tetris.mp3');
 bgMusic.loop = true;
 let isMusicPlaying = false;
 
